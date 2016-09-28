@@ -4,7 +4,7 @@ USE `bse_fin4ds`$$
 
 DROP PROCEDURE IF EXISTS `insert_resi`$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `insert_resi`()
+CREATE DEFINER=`nkhalaieff`@`%` PROCEDURE `insert_resi`()
 BEGIN
 DROP TABLE IF EXISTS AR;
 CREATE TEMPORARY TABLE AR (
@@ -13,6 +13,20 @@ CREATE TEMPORARY TABLE AR (
 	)
 	;
 SELECT YEAR(DATE(NOW() + INTERVAL 6 MONTH)) * 100 + MONTH(DATE(NOW() + INTERVAL 6 MONTH)) INTO @Period;	
+	
+	
+-- create temp table for insert hedge ratio into resi_contracts
+CREATE TEMPORARY TABLE t AS 
+(SELECT IR.acct_prod_id,
+	MAX(HRR.date) d8,
+	HX.state
+FROM incoming_resi IR
+JOIN hub_xref HX
+	ON HX.LDC = IR.ldc
+JOIN Hedge_id_resi HRR
+	ON HRR.state = HX.state
+WHERE HRR.date <= IR.date_provisioned
+GROUP BY IR.acct_prod_id);
 	
 INSERT INTO AR
 SELECT acct_prod_id,
@@ -46,7 +60,12 @@ SELECT DISTINCT
 	NOW() AS date_modified,
 	'2099-12-31 00:00:00' AS date_dropped,
 	1 AS is_current,
-	1 AS recalc
+	1 AS recalc,
+	-- Added 6/21 for resi hedge strategy using hedge_ratio_resi table	
+	ROUND(DATEDIFF(CASE WHEN IR.enddate = '2050-01-01 00:00:00' THEN DATE(IR.startDate) + INTERVAL PERIOD_DIFF(@period, YEAR(IR.startDate) * 100 + MONTH(IR.startDate)) MONTH 
+				ELSE IR.enddate END
+			, IR.startdate) / 30.5) term,
+	t.HRR_ID
 FROM incoming_resi IR
 LEFT OUTER JOIN AR
 	ON IR.acct_prod_id = AR.acct_prod_id
@@ -55,7 +74,9 @@ INNER JOIN hub_xref HX
 LEFT OUTER JOIN Campaigns C
 	ON C.campaign = CASE WHEN IR.enddate = '2050-01-01 00:00:00' OR ISNULL(AR.acct_prod_id) = FALSE THEN 'FPAI-V' ELSE IR.campaign END
 	AND IFNULL(C.offer, '') = CASE WHEN IR.enddate = '2050-01-01 00:00:00' OR ISNULL(AR.acct_prod_id) = FALSE THEN 'FPAI-V' ELSE IFNULL(IR.offer, '') END
-	AND C.zone = HX.load_zone
+	AND C.zone = HX.load_zon
+LEFT JOIN t
+	ON IR.acct_prod_id = t.acct_prod_id
 WHERE IR.complete = 0
 ON DUPLICATE KEY UPDATE
 	resi_contracts.ldc = IR.ldc,
@@ -68,7 +89,8 @@ ON DUPLICATE KEY UPDATE
 					ELSE IR.enddate END,
 	resi_contracts.dropdate = IR.dropdate,	
 	resi_contracts.date_modified = NOW(),
-	resi_contracts.account = REPLACE(IR.account, '\'', '')
+	resi_contracts.account = REPLACE(IR.account, '\'', ''),
+	resi_contracts.HRR_ID = t.HRR_ID 
 	;
 	
 UPDATE resi_contracts RC
@@ -119,7 +141,6 @@ GROUP BY RT.account
 HAVING green_end > IFNULL(brown_end,0);
 ALTER TABLE RT1 ADD INDEX idx1(account);
 	
--- Final update on all current auto_renew
 UPDATE resi_contracts RC
 INNER JOIN RT1
 	ON RC.account = RT1.account
