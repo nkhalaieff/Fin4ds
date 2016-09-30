@@ -65,7 +65,7 @@ SELECT DISTINCT
 	ROUND(DATEDIFF(CASE WHEN IR.enddate = '2050-01-01 00:00:00' THEN DATE(IR.startDate) + INTERVAL PERIOD_DIFF(@period, YEAR(IR.startDate) * 100 + MONTH(IR.startDate)) MONTH 
 				ELSE IR.enddate END
 			, IR.startdate) / 30.5) term,
-	t.HRR_ID
+	HRR.ID
 FROM incoming_resi IR
 LEFT OUTER JOIN AR
 	ON IR.acct_prod_id = AR.acct_prod_id
@@ -74,9 +74,12 @@ INNER JOIN hub_xref HX
 LEFT OUTER JOIN Campaigns C
 	ON C.campaign = CASE WHEN IR.enddate = '2050-01-01 00:00:00' OR ISNULL(AR.acct_prod_id) = FALSE THEN 'FPAI-V' ELSE IR.campaign END
 	AND IFNULL(C.offer, '') = CASE WHEN IR.enddate = '2050-01-01 00:00:00' OR ISNULL(AR.acct_prod_id) = FALSE THEN 'FPAI-V' ELSE IFNULL(IR.offer, '') END
-	AND C.zone = HX.load_zone
+	AND C.zone = HX.load_zon
 LEFT JOIN t
 	ON IR.acct_prod_id = t.acct_prod_id
+LEFT JOIN Hedge_ratio_Resi HRR
+	ON HRR.state = t.state
+	AND HRR.date = t.d8
 WHERE IR.complete = 0
 ON DUPLICATE KEY UPDATE
 	resi_contracts.ldc = IR.ldc,
@@ -90,7 +93,7 @@ ON DUPLICATE KEY UPDATE
 	resi_contracts.dropdate = IR.dropdate,	
 	resi_contracts.date_modified = NOW(),
 	resi_contracts.account = REPLACE(IR.account, '\'', ''),
-	resi_contracts.HRR_ID = t.HRR_ID 
+	resi_contracts.HRR_ID = HRR.ID
 	;
 	
 UPDATE resi_contracts RC
