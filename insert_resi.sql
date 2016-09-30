@@ -74,7 +74,7 @@ INNER JOIN hub_xref HX
 LEFT OUTER JOIN Campaigns C
 	ON C.campaign = CASE WHEN IR.enddate = '2050-01-01 00:00:00' OR ISNULL(AR.acct_prod_id) = FALSE THEN 'FPAI-V' ELSE IR.campaign END
 	AND IFNULL(C.offer, '') = CASE WHEN IR.enddate = '2050-01-01 00:00:00' OR ISNULL(AR.acct_prod_id) = FALSE THEN 'FPAI-V' ELSE IFNULL(IR.offer, '') END
-	AND C.zone = HX.load_zon
+	AND C.zone = HX.load_zone
 LEFT JOIN t
 	ON IR.acct_prod_id = t.acct_prod_id
 WHERE IR.complete = 0
