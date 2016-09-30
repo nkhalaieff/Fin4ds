@@ -12,41 +12,41 @@ TRUNCATE TABLE resi_usage_summary;
 TRUNCATE TABLE dropped_offercodes;
 DROP TABLE IF EXISTS resi_usage_summary_temp;
 	
--- *BACKUP the Existing USAGE TABLE*/
--- SET @tbl_name = CONCAT('usg_fcast_', DATE_FORMAT(NOW(), '%Y%m%d%h%m%s'));
--- SET @sql_str1 = CONCAT('CREATE TABLE ', @tbl_name, ' LIKE usg_fcast;');
--- SET @sql_str2 = CONCAT('INSERT INTO ', @tbl_name, ' SELECT * FROM usg_fcast;');
--- PREPARE stmt1 FROM @sql_str1;
--- EXECUTE stmt1;
--- PREPARE stmt2 FROM @sql_str2;
--- EXECUTE stmt2;
--- /* 2014-05-08: Added Dynamic Drop statment for usg_fcast backups */
--- SELECT CONCAT(S.sqlString, 
--- 	GROUP_CONCAT(S.TABLE_NAME),
--- 	';')
--- FROM (
--- 	SELECT R.sqlString,
--- 		R.TABLE_NAME,
--- 		CAST(LEFT(R.DATETIMESTAMP, 6) AS SIGNED) AS PERIOD,
--- 		YEAR(NOW()) * 100 + MONTH(NOW()) AS PERIODNOW,
--- 		PERIOD_DIFF(YEAR(NOW()) * 100 + MONTH(NOW()), CAST(LEFT(R.DATETIMESTAMP, 6) AS SIGNED)) AS periodDiff
--- 	FROM (
--- 		SELECT 'DROP TABLE IF EXISTS ' AS sqlString,
--- 			T.TABLE_NAME,
--- 			RIGHT(T.TABLE_NAME, LENGTH(T.TABLE_NAME) - LENGTH(SUBSTRING_INDEX(T.TABLE_NAME, '_', 2)) - 1) AS DATETIMESTAMP
--- 		FROM INFORMATION_SCHEMA.TABLES T
--- 		WHERE T.TABLE_NAME REGEXP 'usg_fcast_[0-9]'
--- 		) AS R	
--- 	WHERE PERIOD_DIFF(YEAR(NOW()) * 100 + MONTH(NOW()), CAST(LEFT(R.DATETIMESTAMP, 6) AS SIGNED)) > 3
--- 	) S
--- GROUP BY S.sqlString
--- INTO @sql_str3
--- 	;
--- 	
--- IF @sql_str3 IS NOT NULL THEN
--- 	PREPARE stmt3 FROM @sql_str3;
--- 	EXECUTE stmt3;
--- END IF;
+*BACKUP the Existing USAGE TABLE*/
+SET @tbl_name = CONCAT('usg_fcast_', DATE_FORMAT(NOW(), '%Y%m%d%h%m%s'));
+SET @sql_str1 = CONCAT('CREATE TABLE ', @tbl_name, ' LIKE usg_fcast;');
+SET @sql_str2 = CONCAT('INSERT INTO ', @tbl_name, ' SELECT * FROM usg_fcast;');
+PREPARE stmt1 FROM @sql_str1;
+EXECUTE stmt1;
+PREPARE stmt2 FROM @sql_str2;
+EXECUTE stmt2;
+/* 2014-05-08: Added Dynamic Drop statment for usg_fcast backups */
+SELECT CONCAT(S.sqlString, 
+	GROUP_CONCAT(S.TABLE_NAME),
+	';')
+FROM (
+	SELECT R.sqlString,
+		R.TABLE_NAME,
+		CAST(LEFT(R.DATETIMESTAMP, 6) AS SIGNED) AS PERIOD,
+		YEAR(NOW()) * 100 + MONTH(NOW()) AS PERIODNOW,
+		PERIOD_DIFF(YEAR(NOW()) * 100 + MONTH(NOW()), CAST(LEFT(R.DATETIMESTAMP, 6) AS SIGNED)) AS periodDiff
+	FROM (
+		SELECT 'DROP TABLE IF EXISTS ' AS sqlString,
+			T.TABLE_NAME,
+			RIGHT(T.TABLE_NAME, LENGTH(T.TABLE_NAME) - LENGTH(SUBSTRING_INDEX(T.TABLE_NAME, '_', 2)) - 1) AS DATETIMESTAMP
+		FROM INFORMATION_SCHEMA.TABLES T
+		WHERE T.TABLE_NAME REGEXP 'usg_fcast_[0-9]'
+		) AS R	
+	WHERE PERIOD_DIFF(YEAR(NOW()) * 100 + MONTH(NOW()), CAST(LEFT(R.DATETIMESTAMP, 6) AS SIGNED)) > 3
+	) S
+GROUP BY S.sqlString
+INTO @sql_str3
+	;
+	
+IF @sql_str3 IS NOT NULL THEN
+	PREPARE stmt3 FROM @sql_str3;
+	EXECUTE stmt3;
+END IF;
 COMMIT;
 	
 /*  UPDATE All Contracts Associated to recalc = 1 */
