@@ -2,9 +2,9 @@ DELIMITER $$
 
 USE `bse_fin4ds`$$
 
-DROP PROCEDURE IF EXISTS `print_resi_test_2`$$
+DROP PROCEDURE IF EXISTS `print_resi`$$
 
-CREATE DEFINER=`nkhalaieff`@`%` PROCEDURE `print_resi_test_2`()
+CREATE DEFINER=`cbalgeman`@`%` PROCEDURE `print_resi`()
 BEGIN
 -- DECLARE tbl_name VARCHAR(255);
 /*Clear out the old tables*/
@@ -12,7 +12,7 @@ TRUNCATE TABLE resi_usage_summary;
 TRUNCATE TABLE dropped_offercodes;
 DROP TABLE IF EXISTS resi_usage_summary_temp;
 	
-*BACKUP the Existing USAGE TABLE*/
+/*BACKUP the Existing USAGE TABLE*/
 SET @tbl_name = CONCAT('usg_fcast_', DATE_FORMAT(NOW(), '%Y%m%d%h%m%s'));
 SET @sql_str1 = CONCAT('CREATE TABLE ', @tbl_name, ' LIKE usg_fcast;');
 SET @sql_str2 = CONCAT('INSERT INTO ', @tbl_name, ' SELECT * FROM usg_fcast;');
@@ -53,13 +53,15 @@ COMMIT;
 DROP TABLE IF EXISTS 
 	campaign_update
 	;
--- Updated 6/27/2016 to set resi_contracts.recalc = 1 for all campaigns that have not been modified. This is to update hedges to take monthly churn into consideration.
 CREATE TEMPORARY TABLE campaign_update AS
 SELECT DISTINCT
 	campaign_id
 FROM resi_contracts RC
-WHERE RC.recalc = 1 ;
--- 	AND campaign_id != -1
+WHERE RC.recalc = 1
+	AND campaign_id != -1
+	;
+	
+	
 UPDATE resi_contracts
 SET recalc = 1
 WHERE campaign_id IN (
@@ -172,16 +174,16 @@ LEFT JOIN hedge_ratio_resi HRR
 	
 	
 	/*************** ADD - Below joins to plc_aep_factor allow scaling of PLCs ******************/
--- LEFT JOIN plc_aep_factor PAFC
--- 	ON PAFC.zone = HX.load_zone
--- 	AND UF.period BETWEEN eff_period AND PERIOD_ADD(eff_period, 11)
--- 	AND PAFC.plc_type_int = 1
--- LEFT JOIN plc_aep_factor PAFN
--- 	ON PAFN.zone = HX.load_zone
--- 	AND UF.period BETWEEN eff_period AND PERIOD_ADD(eff_period, 11)
--- 	AND PAFN.plc_type_int = 1
+LEFT JOIN plc_aep_factor PAFC
+	ON PAFC.zone = HX.load_zone
+	AND UF.period BETWEEN eff_period AND PERIOD_ADD(eff_period, 11)
+	AND PAFC.plc_type_int = 1
+LEFT JOIN plc_aep_factor PAFN
+	ON PAFN.zone = HX.load_zone
+	AND UF.period BETWEEN eff_period AND PERIOD_ADD(eff_period, 11)
+	AND PAFN.plc_type_int = 1
 WHERE RC.recalc = 1
-GROUP BY -- LC.offercode, 
+GROUP BY LC.offercode, 
 	RC.acct_prod_id,
 	C.campaign, 
 	mon_cal.yr, 
@@ -214,8 +216,7 @@ SELECT
 	SUM(RUST.net_plc * HRF.scale) net_plc,
 	SUM(RUST.cap_plc * HRF.scale) cap_plc,
 	RUST.dropdate,
-	RUST.campaign_code, 
-	NULL
+	RUST.campaign_code
 	
 FROM resi_usage_summary_temp RUST
 JOIN prod_cntrl PC
@@ -257,8 +258,7 @@ SELECT
 	SUM(RUST.net_plc * RUST.hedge_scale) net_plc,
 	SUM(RUST.cap_plc * RUST.hedge_scale) cap_plc,
 	RUST.dropdate,
-	RUST.campaign_code,
-	NULL
+	RUST.campaign_code
 	
 FROM resi_usage_summary_temp RUST
 JOIN prod_cntrl PC
